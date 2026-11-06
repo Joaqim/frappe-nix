@@ -85,6 +85,18 @@ in
           example = "pequea.avu.nu";
         };
 
+        webListenHost = mkOption {
+          type = types.str;
+          default = "127.0.0.1";
+          description = ''
+            Address the public web listener binds: nginx in socket mode, the
+            runtime's TCP fallback otherwise. A Host that names no site resolves
+            to the default site, so binding 0.0.0.0 needs no Frappe-side config;
+            the process healthchecks stay on 127.0.0.1 either way.
+          '';
+          example = "0.0.0.0";
+        };
+
         workspaceRoot = mkOption {
           type = types.nullOr types.path;
           default = null;
@@ -2419,7 +2431,7 @@ in
                 }
 
                 server {
-                  listen 127.0.0.1:${toString webPort};
+                  listen ${cfg.webListenHost}:${toString webPort};
 
                   # nginx defaults to 1m; Frappe's own limit is 25m
                   # (frappe/app.py: request.max_content_length). Without this,
@@ -2532,7 +2544,7 @@ in
                       ''
                       + ''
                         exec ${pythonEnvs.devPythonEnv}/bin/frappe-runtime \
-                          ${if sockets then ''--uds "${webSocket}"'' else "--host 127.0.0.1 --port ${toString webPort}"} \
+                          ${if sockets then ''--uds "${webSocket}"'' else "--host ${cfg.webListenHost} --port ${toString webPort}"} \
                           --job-threads ${toString cfg.runtime.jobThreads}''
                       + lib.optionalString cfg.runtime.dev " --dev";
                     after =
@@ -2864,7 +2876,7 @@ in
                     exit 0
                   fi
 
-                  echo "frappe-nix: serving on http://127.0.0.1:$port (updating sites/common_site_config.json)"
+                  echo "frappe-nix: serving on http://${cfg.webListenHost}:$port (updating sites/common_site_config.json)"
                   mv "$tmp" "$config"
 
                   # boot.py copies socketio_port into bootinfo and sessions.py
